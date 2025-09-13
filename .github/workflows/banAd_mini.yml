@@ -59,8 +59,8 @@ jobs:
             }
 
             // 读取并合并 a-dove-is-dumb.yaml
-            if (await fs.pathExists(pcdnListPath)) {
-              const lines = (await fs.readFile(pcdnListPath, 'utf8'))
+            if (await fs.pathExists(adobePath)) {
+              const lines = (await fs.readFile(adobePath, 'utf8'))
                 .split(/\r?\n/)
                 .map(l => l.trim())
                 .filter(l => l && !l.startsWith('#'));
