@@ -94,6 +94,10 @@ jobs:
                   .filter(l => l && !l.startsWith('#'));
 
                 for (const line of lines) {
+                // 如果行以 "DOMAIN," 开头，去掉该前缀
+                  if (line.startsWith('DOMAIN,')) {
+                    line = line.replace(/^DOMAIN,/, '').trim();
+                  }
                   if (line.startsWith('DOMAIN-SUFFIX,')) {
                     const val = line.replace('DOMAIN-SUFFIX,', '').trim();
                     combined.domain_suffix.push(val.startsWith('.') ? val.slice(1) : val);
