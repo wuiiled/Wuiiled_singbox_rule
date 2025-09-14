@@ -1,117 +1,61 @@
-name: Sync BanAd_mini Rule
+(async () => {
+  const fs = require('fs-extra');
+  const path = require('path');
+  const YAML = require('yaml');
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *'  # 每天 00:00 UTC 执行
+  try {
+    // 把你原来的 main() 内容直接放这里（不用再定义 async function main）
+    const miniPath = 'temp_repo/banAd_mini.json';
+    const adobePath = 'temp_repo/a-dove-is-dumb.yaml';
+    const outputPath = 'rules/banAd_mini.json';
 
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    let miniData = {};
+    if (await fs.pathExists(miniPath)) {
+      miniData = JSON.parse(await fs.readFile(miniPath, 'utf8')) || {};
+    }
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    const combined = { domain: [], domain_suffix: [], domain_regex: [] };
 
-      - name: Download BanAd_mini JSON and a-dove-is-dumb.yaml
-        run: |
-          mkdir -p temp_repo
-          mkdir -p rules
-          curl -L https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/refs/heads/main/Filters/AWAvenue-Ads-Rule-Singbox.json -o temp_repo/banAd_mini.json
-          curl -L https://raw.githubusercontent.com/ignaciocastro/a-dove-is-dumb/refs/heads/main/clash.yaml -o temp_repo/a-dove-is-dumb.yaml
+    if (Array.isArray(miniData.rules)) {
+      for (const rule of miniData.rules) {
+        if (Array.isArray(rule.domain)) combined.domain.push(...rule.domain);
+        if (Array.isArray(rule.domain_suffix)) combined.domain_suffix.push(...rule.domain_suffix);
+        if (Array.isArray(rule.domain_regex)) combined.domain_regex.push(...rule.domain_regex);
+      }
+    }
 
-      - name: Install dependencies
-        run: npm install fs-extra
+    const yamlContent = await fs.readFile(adobePath, 'utf8');
+    const yamlData = YAML.parse(yamlContent) || {};
+    const payload = Array.isArray(yamlData.payload) ? yamlData.payload : [];
 
-      - name: Merge banAd_mini.json + a-dove-is-dumb.yaml
-        run: |
-          node <<'EOF'
-          const fs = require('fs-extra');
-          const path = require('path');
+    for (const item of payload) {
+      if (typeof item !== 'string' || !item.trim()) continue;
+      const domain = item.trim();
+      if (domain.startsWith('*.')) {
+        combined.domain_suffix.push(domain.slice(2));
+      } else {
+        combined.domain.push(domain);
+      }
+    }
 
-          async function main() {
-            const miniPath = 'temp_repo/banAd_mini.json';
-            const adobePath = 'temp_repo/a-dove-is-dumb.yaml';
-            const outputPath = 'rules/banAd_mini.json';
+    for (const key of ['domain', 'domain_suffix', 'domain_regex']) {
+      combined[key] = Array.from(new Set(
+        combined[key].map(d => typeof d === 'string' ? d.trim() : d)
+      ));
+      if (key === 'domain_suffix') {
+        combined[key] = combined[key].map(d => d.startsWith('.') ? d.slice(1) : d);
+      }
+      combined[key] = combined[key].sort();
+      if (!combined[key].length) delete combined[key];
+    }
 
-            // 读取 banAd_mini.json
-            let miniData = {};
-            if (await fs.pathExists(miniPath)) {
-              miniData = JSON.parse(await fs.readFile(miniPath, 'utf8')) || {};
-            }
+    const output = { version: 2, rules: [combined] };
 
-            // banAd_mini 的规则结构
-            const combined = {
-              domain: [],
-              domain_suffix: [],
-              domain_regex: []
-            };
-
-            if (Array.isArray(miniData.rules)) {
-              for (const rule of miniData.rules) {
-                if (Array.isArray(rule.domain)) combined.domain.push(...rule.domain);
-                if (Array.isArray(rule.domain_suffix)) combined.domain_suffix.push(...rule.domain_suffix);
-                if (Array.isArray(rule.domain_regex)) combined.domain_regex.push(...rule.domain_regex);
-              }
-            }
-
-            // 读取并合并 a-dove-is-dumb.yaml
-              const yamlContent = await fs.readFile(adobePath, 'utf8');
-              const yamlData = YAML.parse(yamlContent) || {};
-              const payload = Array.isArray(yamlData.payload) ? yamlData.payload : [];
-
-              for (const item of payload) {
-                if (typeof item !== 'string' || !item.trim()) continue;
-                  const domain = item.trim();
-                if (line.startsWith('DOMAIN-SUFFIX,')) {
-                  const val = line.replace('DOMAIN-SUFFIX,', '').trim();
-                  combined.domain_suffix.push(val.startsWith('.') ? val.slice(1) : val);
-                } else if (line.startsWith('DOMAIN,')) {
-                  const val = line.replace('DOMAIN,', '').trim();
-                  combined.domain.push(val);
-                } else if (line.startsWith('DOMAIN-REGEX,')) {
-                  const val = line.replace('DOMAIN-REGEX,', '').trim();
-                  combined.domain_regex.push(val);
-                }
-              }
-            }
-
-            // 清洗去重
-            for (const key of ['domain', 'domain_suffix', 'domain_regex']) {
-              combined[key] = Array.from(new Set(
-                combined[key].map(d => typeof d === 'string' ? d.trim() : d)
-              ));
-
-              if (key === 'domain_suffix') {
-                combined[key] = combined[key].map(d => d.startsWith('.') ? d.slice(1) : d);
-              }
-
-              combined[key] = combined[key].sort();
-              if (!combined[key].length) delete combined[key];
-            }
-
-            // 输出 JSON
-            const output = {
-              version: 2,
-              rules: [combined]
-            };
-
-            await fs.ensureDir(path.dirname(outputPath));
-            await fs.writeJson(outputPath, output, { spaces: 2 });
-            console.log(`Merged banAd_mini.json + a-dove-is-dumb.yaml -> ${outputPath}`);
-          }
-
-          main().catch(err => {
-            console.error(err);
-            process.exit(1);
-          });
-          EOF
-
-      - name: Commit and push changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add rules/banAd_mini.json
-          git diff --cached --quiet || (git commit -m "Update banAd_mini.json" && git push)
+    await fs.ensureDir(path.dirname(outputPath));
+    await fs.writeJson(outputPath, output, { spaces: 2 });
+    console.log(`Merged banAd_mini.json + a-dove-is-dumb.yaml -> ${outputPath}`);
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+})();
