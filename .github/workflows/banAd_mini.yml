@@ -38,17 +38,12 @@ jobs:
               const adobePath = 'temp_repo/a-dove-is-dumb.yaml';
               const outputPath = 'rules/banAd_mini.json';
 
-              // 读取 banAd_mini.json
               let miniData = {};
               if (await fs.pathExists(miniPath)) {
                 miniData = JSON.parse(await fs.readFile(miniPath, 'utf8')) || {};
               }
 
-              const combined = {
-                domain: [],
-                domain_suffix: [],
-                domain_regex: []
-              };
+              const combined = { domain: [], domain_suffix: [], domain_regex: [] };
 
               if (Array.isArray(miniData.rules)) {
                 for (const rule of miniData.rules) {
@@ -62,57 +57,51 @@ jobs:
                 const yamlContent = await fs.readFile(adobePath, 'utf8');
 
                 let parsed = {};
-                try {
-                  parsed = YAML.parse(yamlContent) || {};
-                } catch (e) {
-                  parsed = {};
-                }
+                try { parsed = YAML.parse(yamlContent) || {}; } catch (e) { parsed = {}; }
+
+                const normalizeLine = (raw) => {
+                  if (!raw || typeof raw !== 'string') return '';
+                  let s = raw.trim();
+                  // 反复移除可能的前缀，如 "DOMAIN,", " domain,", 支持任意大小写与空格
+                  s = s.replace(/^(\s*DOMAIN\s*,\s*)+/i, '');
+                  return s.trim();
+                };
 
                 if (Array.isArray(parsed.payload) && parsed.payload.length) {
                   for (const item of parsed.payload) {
-                    if (typeof item !== 'string' || !item.trim()) continue;
-                    const domain = item.trim();
-                    if (domain.startsWith('*.')) {
-                      combined.domain_suffix.push(domain.slice(2));
-                    } else {
-                      combined.domain.push(domain);
-                    }
+                    const domain = normalizeLine(item);
+                    if (!domain) continue;
+                    if (domain.startsWith('*.')) combined.domain_suffix.push(domain.slice(2));
+                    else combined.domain.push(domain);
                   }
                 } else {
-                  const lines = yamlContent
-                    .split(/\r?\n/)
-                    .map(l => l.trim())
-                    .filter(l => l && !l.startsWith('#'));
-
+                  const lines = yamlContent.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
                   for (let line of lines) {
-                    // 如果行以 "DOMAIN," 开头，去掉该前缀
-                    if (line.startsWith('DOMAIN,')) {
-                      line = line.replace(/^DOMAIN,/, '').trim();
+                    line = normalizeLine(line);
+                    if (!line) continue;
+
+                    if (/^DOMAIN-SUFFIX\s*,/i.test(line)) {
+                      const val = line.replace(/^DOMAIN-SUFFIX\s*,/i, '').trim();
+                      if (val) combined.domain_suffix.push(val.replace(/^\./, ''));
+                      continue;
+                    }
+                    if (/^DOMAIN-REGEX\s*,/i.test(line)) {
+                      const val = line.replace(/^DOMAIN-REGEX\s*,/i, '').trim();
+                      if (val) combined.domain_regex.push(val);
+                      continue;
                     }
 
-                    if (line.startsWith('DOMAIN-SUFFIX,')) {
-                      const val = line.replace('DOMAIN-SUFFIX,', '').trim();
-                      combined.domain_suffix.push(val.startsWith('.') ? val.slice(1) : val);
-                    } else if (line.startsWith('DOMAIN,') || /^[A-Za-z0-9.-]+$/.test(line) || line.startsWith('*.')) {
-                      // 处理可能残留的 "DOMAIN,"（防护）以及裸域名或 "*.example.com"
-                      if (line.startsWith('DOMAIN,')) {
-                        const val = line.replace('DOMAIN,', '').trim();
-                        combined.domain.push(val);
-                      } else if (line.startsWith('*.')) {
-                        combined.domain_suffix.push(line.slice(2));
-                      } else {
-                        combined.domain.push(line);
-                      }
-                    } else if (line.startsWith('DOMAIN-REGEX,')) {
-                      const val = line.replace('DOMAIN-REGEX,', '').trim();
-                      combined.domain_regex.push(val);
+                    // 处理 *.example.com 或裸域名
+                    if (line.startsWith('*.')) {
+                      combined.domain_suffix.push(line.slice(2));
+                    } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
+                      combined.domain.push(line);
                     } else {
-                      // 其他格式：尝试解析简单域名形式
-                      if (line.startsWith('*.')) {
-                        combined.domain_suffix.push(line.slice(2));
-                      } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
-                        combined.domain.push(line);
-                      }
+                      // 如果行仍含有逗号分隔的前缀（例如 "DOMAIN,example.com" 未被完全移除），尝试最后一次分割取最后一段
+                      const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+                      const candidate = parts[parts.length - 1] || '';
+                      if (candidate.startsWith('*.')) combined.domain_suffix.push(candidate.slice(2));
+                      else if (/^[A-Za-z0-9.-]+$/.test(candidate)) combined.domain.push(candidate);
                     }
                   }
                 }
@@ -122,24 +111,14 @@ jobs:
               for (const key of ['domain', 'domain_suffix', 'domain_regex']) {
                 if (!Array.isArray(combined[key])) continue;
                 combined[key] = Array.from(new Set(
-                  combined[key]
-                    .filter(d => typeof d === 'string' && d.trim())
-                    .map(d => d.trim())
+                  combined[key].filter(d => typeof d === 'string' && d.trim()).map(d => d.trim())
                 ));
-
-                if (key === 'domain_suffix') {
-                  combined[key] = combined[key].map(d => d.startsWith('.') ? d.slice(1) : d);
-                }
-
+                if (key === 'domain_suffix') combined[key] = combined[key].map(d => d.replace(/^\./, ''));
                 combined[key] = combined[key].sort();
                 if (!combined[key].length) delete combined[key];
               }
 
-              const output = {
-                version: 2,
-                rules: [combined]
-              };
-
+              const output = { version: 2, rules: [combined] };
               await fs.ensureDir(path.dirname(outputPath));
               await fs.writeJson(outputPath, output, { spaces: 2 });
               console.log(`Merged banAd_mini.json + a-dove-is-dumb.yaml -> ${outputPath}`);
@@ -149,6 +128,7 @@ jobs:
             }
           })();
           EOF
+
 
 
       - name: Commit and push changes
