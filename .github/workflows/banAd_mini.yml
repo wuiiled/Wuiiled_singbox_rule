@@ -30,128 +30,126 @@ jobs:
           node <<'EOF'
           const fs = require('fs-extra');
           const path = require('path');
-
-          (async () => {
-          const fs = require('fs-extra');
-          const path = require('path');
           const YAML = require('yaml');
 
-          try {
-            const miniPath = 'temp_repo/banAd_mini.json';
-            const adobePath = 'temp_repo/a-dove-is-dumb.yaml';
-            const outputPath = 'rules/banAd_mini.json';
+          (async () => {
+            try {
+              const miniPath = 'temp_repo/banAd_mini.json';
+              const adobePath = 'temp_repo/a-dove-is-dumb.yaml';
+              const outputPath = 'rules/banAd_mini.json';
 
-            // 读取 banAd_mini.json
-            let miniData = {};
-            if (await fs.pathExists(miniPath)) {
-              miniData = JSON.parse(await fs.readFile(miniPath, 'utf8')) || {};
-            }
-
-            // banAd_mini 的规则结构
-            const combined = {
-              domain: [],
-              domain_suffix: [],
-              domain_regex: []
-            };
-
-            if (Array.isArray(miniData.rules)) {
-              for (const rule of miniData.rules) {
-                if (Array.isArray(rule.domain)) combined.domain.push(...rule.domain);
-                if (Array.isArray(rule.domain_suffix)) combined.domain_suffix.push(...rule.domain_suffix);
-                if (Array.isArray(rule.domain_regex)) combined.domain_regex.push(...rule.domain_regex);
-              }
-            }
-
-            // 读取 a-dove-is-dumb.yaml 内容
-            if (await fs.pathExists(adobePath)) {
-              const yamlContent = await fs.readFile(adobePath, 'utf8');
-
-            // 尝试解析为 YAML（含 payload 字段）
-              let parsed = {};
-              try {
-                parsed = YAML.parse(yamlContent) || {};
-                      } catch (e) {
-                parsed = {}; // 如果不是有效 YAML，也继续下面的行解析
+              // 读取 banAd_mini.json
+              let miniData = {};
+              if (await fs.pathExists(miniPath)) {
+                miniData = JSON.parse(await fs.readFile(miniPath, 'utf8')) || {};
               }
 
-              // 优先处理 payload 数组（如果存在且为数组）
-              if (Array.isArray(parsed.payload) && parsed.payload.length) {
-                const payload = parsed.payload;
-                for (const item of payload) {
-                  if (typeof item !== 'string' || !item.trim()) continue;
-                  const domain = item.trim();
-                  if (domain.startsWith('*.')) {
-                    combined.domain_suffix.push(domain.slice(2)); // 去掉 "*."
-                  } else {
-                    combined.domain.push(domain);
-                  }
+              const combined = {
+                domain: [],
+                domain_suffix: [],
+                domain_regex: []
+              };
+
+              if (Array.isArray(miniData.rules)) {
+                for (const rule of miniData.rules) {
+                  if (Array.isArray(rule.domain)) combined.domain.push(...rule.domain);
+                  if (Array.isArray(rule.domain_suffix)) combined.domain_suffix.push(...rule.domain_suffix);
+                  if (Array.isArray(rule.domain_regex)) combined.domain_regex.push(...rule.domain_regex);
                 }
-              } else {
-                // 否则尝试按文本行解析 Clash/AdGuard 风格的规则文件
-                const lines = yamlContent
-                  .split(/\r?\n/)
-                  .map(l => l.trim())
-                  .filter(l => l && !l.startsWith('#'));
+              }
 
-                for (const line of lines) {
-                // 如果行以 "DOMAIN," 开头，去掉该前缀
-                  if (line.startsWith('DOMAIN,')) {
-                    line = line.replace(/^DOMAIN,/, '').trim();
+              if (await fs.pathExists(adobePath)) {
+                const yamlContent = await fs.readFile(adobePath, 'utf8');
+
+                let parsed = {};
+                try {
+                  parsed = YAML.parse(yamlContent) || {};
+                } catch (e) {
+                  parsed = {};
+                }
+
+                if (Array.isArray(parsed.payload) && parsed.payload.length) {
+                  for (const item of parsed.payload) {
+                    if (typeof item !== 'string' || !item.trim()) continue;
+                    const domain = item.trim();
+                    if (domain.startsWith('*.')) {
+                      combined.domain_suffix.push(domain.slice(2));
+                    } else {
+                      combined.domain.push(domain);
+                    }
                   }
-                  if (line.startsWith('DOMAIN-SUFFIX,')) {
-                    const val = line.replace('DOMAIN-SUFFIX,', '').trim();
-                    combined.domain_suffix.push(val.startsWith('.') ? val.slice(1) : val);
-                  } else if (line.startsWith('DOMAIN,')) {
-                    const val = line.replace('DOMAIN,', '').trim();
-                    combined.domain.push(val);
-                  } else if (line.startsWith('DOMAIN-REGEX,')) {
-                    const val = line.replace('DOMAIN-REGEX,', '').trim();
-                    combined.domain_regex.push(val);
-                  } else {
-                    // 也接受星号前缀样式的单行条目（例如 "*.example.com"）
-                    if (line.startsWith('*.')) {
-                      combined.domain_suffix.push(line.slice(2));
-                    } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
-                      combined.domain.push(line);
+                } else {
+                  const lines = yamlContent
+                    .split(/\r?\n/)
+                    .map(l => l.trim())
+                    .filter(l => l && !l.startsWith('#'));
+
+                  for (let line of lines) {
+                    // 如果行以 "DOMAIN," 开头，去掉该前缀
+                    if (line.startsWith('DOMAIN,')) {
+                      line = line.replace(/^DOMAIN,/, '').trim();
+                    }
+
+                    if (line.startsWith('DOMAIN-SUFFIX,')) {
+                      const val = line.replace('DOMAIN-SUFFIX,', '').trim();
+                      combined.domain_suffix.push(val.startsWith('.') ? val.slice(1) : val);
+                    } else if (line.startsWith('DOMAIN,') || /^[A-Za-z0-9.-]+$/.test(line) || line.startsWith('*.')) {
+                      // 处理可能残留的 "DOMAIN,"（防护）以及裸域名或 "*.example.com"
+                      if (line.startsWith('DOMAIN,')) {
+                        const val = line.replace('DOMAIN,', '').trim();
+                        combined.domain.push(val);
+                      } else if (line.startsWith('*.')) {
+                        combined.domain_suffix.push(line.slice(2));
+                      } else {
+                        combined.domain.push(line);
+                      }
+                    } else if (line.startsWith('DOMAIN-REGEX,')) {
+                      const val = line.replace('DOMAIN-REGEX,', '').trim();
+                      combined.domain_regex.push(val);
+                    } else {
+                      // 其他格式：尝试解析简单域名形式
+                      if (line.startsWith('*.')) {
+                        combined.domain_suffix.push(line.slice(2));
+                      } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
+                        combined.domain.push(line);
+                      }
                     }
                   }
                 }
               }
-            }
 
-            // 清洗去重、规范化与排序
-            for (const key of ['domain', 'domain_suffix', 'domain_regex']) {
-              if (!Array.isArray(combined[key])) continue;
-              combined[key] = Array.from(new Set(
-                combined[key]
-                  .filter(d => typeof d === 'string' && d.trim())
-                  .map(d => d.trim())
-              ));
+              // 清洗去重、规范化与排序
+              for (const key of ['domain', 'domain_suffix', 'domain_regex']) {
+                if (!Array.isArray(combined[key])) continue;
+                combined[key] = Array.from(new Set(
+                  combined[key]
+                    .filter(d => typeof d === 'string' && d.trim())
+                    .map(d => d.trim())
+                ));
 
-              if (key === 'domain_suffix') {
-                combined[key] = combined[key].map(d => d.startsWith('.') ? d.slice(1) : d);
+                if (key === 'domain_suffix') {
+                  combined[key] = combined[key].map(d => d.startsWith('.') ? d.slice(1) : d);
+                }
+
+                combined[key] = combined[key].sort();
+                if (!combined[key].length) delete combined[key];
               }
 
-              combined[key] = combined[key].sort();
-              if (!combined[key].length) delete combined[key];
+              const output = {
+                version: 2,
+                rules: [combined]
+              };
+
+              await fs.ensureDir(path.dirname(outputPath));
+              await fs.writeJson(outputPath, output, { spaces: 2 });
+              console.log(`Merged banAd_mini.json + a-dove-is-dumb.yaml -> ${outputPath}`);
+            } catch (err) {
+              console.error(err);
+              process.exit(1);
             }
-
-            // 输出 JSON
-            const output = {
-              version: 2,
-              rules: [combined]
-            };
-
-            await fs.ensureDir(path.dirname(outputPath));
-            await fs.writeJson(outputPath, output, { spaces: 2 });
-            console.log(`Merged banAd_mini.json + a-dove-is-dumb.yaml -> ${outputPath}`);
-          } catch (err) {
-            console.error(err);
-            process.exit(1);
-          }
           })();
-
           EOF
+
 
       - name: Commit and push changes
         run: |
