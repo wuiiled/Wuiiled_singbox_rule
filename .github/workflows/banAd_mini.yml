@@ -60,8 +60,7 @@ jobs:
             // 读取并合并 a-dove-is-dumb.yaml
               const yamlContent = await fs.readFile(adobePath, 'utf8');
               const yamlData = YAML.parse(yamlContent) || {};
-              const payload = Array.isArray(yamlData.payload) ? yamlData.payload : []
-              };
+              const payload = Array.isArray(yamlData.payload) ? yamlData.payload : [];
 
               for (const item of payload) {
                 if (typeof item !== 'string' || !item.trim()) continue;
