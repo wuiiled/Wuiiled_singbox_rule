@@ -15,12 +15,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download BanAd_mini JSON, pcdn.json and pcdn.list
+      - name: Download BanAd_mini JSON and a-dove-is-dumb.yaml
         run: |
           mkdir -p temp_repo
           mkdir -p rules
           curl -L https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/refs/heads/main/Filters/AWAvenue-Ads-Rule-Singbox.json -o temp_repo/banAd_mini.json
-          curl -L https://raw.githubusercontent.com/Lanlan13-14/Rules/refs/heads/main/rules/Domain/pcdn.list -o temp_repo/pcdn.list
           curl -L https://raw.githubusercontent.com/ignaciocastro/a-dove-is-dumb/refs/heads/main/clash.yaml -o temp_repo/a-dove-is-dumb.yaml
 
       - name: Install dependencies
@@ -115,4 +114,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add rules/banAd_mini.json
-          git diff --cached --quiet || (git commit -m "Update banAd_mini.json (merged with pcdn + pcdn.list)" && git push)
+          git diff --cached --quiet || (git commit -m "Update banAd_mini.json" && git push)
