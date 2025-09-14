@@ -64,7 +64,9 @@ jobs:
                 .map(l => l.trim())
                 .filter(l => l && !l.startsWith('#'));
 
-              for (const line of lines) {
+              for (const item of payload) {
+                if (typeof item !== 'string' || !item.trim()) continue;
+                  const domain = item.trim();
                 if (line.startsWith('DOMAIN-SUFFIX,')) {
                   const val = line.replace('DOMAIN-SUFFIX,', '').trim();
                   combined.domain_suffix.push(val.startsWith('.') ? val.slice(1) : val);
