@@ -58,6 +58,15 @@ jobs:
             }
 
             // 读取并合并 a-dove-is-dumb.yaml
+            const yamlContent = await fs.readFile(adobePath, 'utf8');
+            const yamlData = YAML.parse(yamlContent) || {};
+            const payload = Array.isArray(yamlData.payload) ? yamlData.payload : [];
+
+            const combined = {
+              domain: [],
+              domain_suffix: [],
+              domain_regex: []
+            };
             if (await fs.pathExists(adobePath)) {
               const lines = (await fs.readFile(adobePath, 'utf8'))
                 .split(/\r?\n/)
