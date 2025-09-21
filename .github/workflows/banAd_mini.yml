@@ -15,74 +15,128 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download ADs_merged.txt
+      - name: Download BanAd_mini JSON, a-dove-is-dumb.yaml and ADs_merged.txt
         run: |
           mkdir -p temp_repo
           mkdir -p rules
-          curl -L raw.githubusercontent.com/wuiiled/Wuiiled_Setup/refs/heads/mihomo/rules/ADs_merged.txt -o temp_repo/ADs_merged.txt || true
+          curl -L raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/refs/heads/main/Filters/AWAvenue-Ads-Rule-Singbox.json -o temp_repo/banAd_mini.json
+          curl -L raw.githubusercontent.com/ignaciocastro/a-dove-is-dumb/refs/heads/main/clash.yaml -o temp_repo/a-dove-is-dumb.yaml
+          curl -L raw.githubusercontent.com/wuiiled/Wuiiled_Setup/refs/heads/mihomo/rules/ADs_merged.txt -o temp_repo/ADs_merged.txt
 
       - name: Install dependencies
         run: npm install fs-extra yaml
 
-      - name: Merge ADs_merged.txt -> rules/banAd_mini.json
+      - name: Merge banAd_mini.json + a-dove-is-dumb.yaml + ADs_merged.txt
         run: |
           node <<'EOF'
           const fs = require('fs-extra');
           const path = require('path');
+          const YAML = require('yaml');
 
           (async () => {
             try {
-              const adsTxtPath = 'temp_repo/ADs_merged.txt';
+              const miniPath = 'temp_repo/banAd_mini.json';
+              const adobePath = 'temp_repo/a-dove-is-dumb.yaml';
+              const adsMergedPath = 'temp_repo/ADs_merged.txt';
               const outputPath = 'rules/banAd_mini.json';
 
+              let miniData = {};
+              if (await fs.pathExists(miniPath)) {
+                miniData = JSON.parse(await fs.readFile(miniPath, 'utf8')) || {};
+              }
+
               const combined = { domain: [], domain_suffix: [], domain_regex: [] };
+
+              if (Array.isArray(miniData.rules)) {
+                for (const rule of miniData.rules) {
+                  if (Array.isArray(rule.domain)) combined.domain.push(...rule.domain);
+                  if (Array.isArray(rule.domain_suffix)) combined.domain_suffix.push(...rule.domain_suffix);
+                  if (Array.isArray(rule.domain_regex)) combined.domain_regex.push(...rule.domain_regex);
+                }
+              }
 
               const normalizeLine = (raw) => {
                 if (!raw || typeof raw !== 'string') return '';
                 let s = raw.trim();
-                s = s.replace(/^(\s*DOMAIN\S*\s*[,:\-]*\s*)+/i, '');
+                // 反复移除可能的前缀（如 "DOMAIN,", "DOMAIN-SUFFIX,", "DOMAIN-REGEX:", 任意大小写与空格或中文冒号）
+                s = s.replace(/^(\s*(DOMAIN|DOMAIN-SUFFIX|DOMAIN-REGEX)\s*[,：:]\s*)+/i, '');
+                s = s.replace(/^(\s*DOMAIN\s*,\s*)+/i, '');
                 return s.trim();
               };
 
-              if (await fs.pathExists(adsTxtPath)) {
-                const txt = await fs.readFile(adsTxtPath, 'utf8');
-                const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+              // 解析 a-dove-is-dumb.yaml
+              if (await fs.pathExists(adobePath)) {
+                const yamlContent = await fs.readFile(adobePath, 'utf8');
+                let parsed = {};
+                try { parsed = YAML.parse(yamlContent) || {}; } catch (e) { parsed = {}; }
+
+                if (Array.isArray(parsed.payload) && parsed.payload.length) {
+                  for (const item of parsed.payload) {
+                    const domain = normalizeLine(item);
+                    if (!domain) continue;
+                    if (domain.startsWith('*.')) combined.domain_suffix.push(domain.slice(2));
+                    else combined.domain.push(domain);
+                  }
+                } else {
+                  const lines = yamlContent.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                  for (let line of lines) {
+                    line = normalizeLine(line);
+                    if (!line) continue;
+
+                    if (/^DOMAIN-SUFFIX\s*[,：:]/i.test(line)) {
+                      const val = line.replace(/^DOMAIN-SUFFIX\s*[,：:]/i, '').trim();
+                      if (val) combined.domain_suffix.push(val.replace(/^\./, ''));
+                      continue;
+                    }
+                    if (/^DOMAIN-REGEX\s*[,：:]/i.test(line)) {
+                      const val = line.replace(/^DOMAIN-REGEX\s*[,：:]/i, '').trim();
+                      if (val) combined.domain_regex.push(val);
+                      continue;
+                    }
+
+                    if (line.startsWith('*.')) {
+                      combined.domain_suffix.push(line.slice(2));
+                    } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
+                      combined.domain.push(line);
+                    } else {
+                      const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+                      const candidate = parts[parts.length - 1] || '';
+                      if (candidate.startsWith('*.')) combined.domain_suffix.push(candidate.slice(2));
+                      else if (/^[A-Za-z0-9.-]+$/.test(candidate)) combined.domain.push(candidate);
+                    }
+                  }
+                }
+              }
+
+              // 解析 ADs_merged.txt（与上面文本解析逻辑相同）
+              if (await fs.pathExists(adsMergedPath)) {
+                const adsContent = await fs.readFile(adsMergedPath, 'utf8');
+                const lines = adsContent.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
                 for (let line of lines) {
                   line = normalizeLine(line);
                   if (!line) continue;
 
-                  if (/^DOMAIN-SUFFIX\s*[,:\-]\s*/i.test(line)) {
-                    const val = line.replace(/^DOMAIN-SUFFIX\s*[,:\-]\s*/i, '').trim();
+                  if (/^DOMAIN-SUFFIX\s*[,：:]/i.test(line)) {
+                    const val = line.replace(/^DOMAIN-SUFFIX\s*[,：:]/i, '').trim();
                     if (val) combined.domain_suffix.push(val.replace(/^\./, ''));
                     continue;
                   }
-                  if (/^DOMAIN-REGEX\s*[,:\-]\s*/i.test(line)) {
-                    const val = line.replace(/^DOMAIN-REGEX\s*[,:\-]\s*/i, '').trim();
-                    combined.domain_regex.push(val);
-                    continue;
-                  }
-                  if (/^DOMAIN\b/i.test(line)) {
-                    const val = line.replace(/^DOMAIN\S*\s*[,:\-]*\s*/i, '').trim();
-                    if (!val) continue;
-                    if (val.startsWith('*.')) combined.domain_suffix.push(val.slice(2));
-                    else if (/^[A-Za-z0-9.-]+$/.test(val)) combined.domain.push(val);
+                  if (/^DOMAIN-REGEX\s*[,：:]/i.test(line)) {
+                    const val = line.replace(/^DOMAIN-REGEX\s*[,：:]/i, '').trim();
+                    if (val) combined.domain_regex.push(val);
                     continue;
                   }
 
                   if (line.startsWith('*.')) {
                     combined.domain_suffix.push(line.slice(2));
-                    continue;
-                  }
-                  if (/^[A-Za-z0-9.-]+$/.test(line)) {
+                  } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
                     combined.domain.push(line);
-                    continue;
+                  } else {
+                    const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+                    const candidate = parts[parts.length - 1] || '';
+                    if (candidate.startsWith('*.')) combined.domain_suffix.push(candidate.slice(2));
+                    else if (/^[A-Za-z0-9.-]+$/.test(candidate)) combined.domain.push(candidate);
                   }
-
-                  const parts = line.split(',').map(p => p.trim()).filter(Boolean);
-                  const candidate = parts[parts.length - 1] || '';
-                  if (!candidate) continue;
-                  if (candidate.startsWith('*.')) combined.domain_suffix.push(candidate.slice(2));
-                  else if (/^[A-Za-z0-9.-]+$/.test(candidate)) combined.domain.push(candidate);
                 }
               }
 
@@ -100,7 +154,7 @@ jobs:
               const output = { version: 2, rules: [combined] };
               await fs.ensureDir(path.dirname(outputPath));
               await fs.writeJson(outputPath, output, { spaces: 2 });
-              console.log(`Merged ADs_merged.txt -> ${outputPath}`);
+              console.log(`Merged banAd_mini.json + a-dove-is-dumb.yaml + ADs_merged.txt -> ${outputPath}`);
             } catch (err) {
               console.error(err);
               process.exit(1);
