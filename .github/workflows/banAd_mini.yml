@@ -64,10 +64,9 @@ jobs:
 
               const handleLineByPrefix = (line) => {
                 const mDomain = line.match(/^\s*DOMAIN\s*[,：:]\s*(.+)$/i);
-               if (mDomain) {
+                if (mDomain) {
                   const val = mDomain[1].trim();
                   if (val.startsWith('*.')) combined.domain_suffix.push(val.slice(2));
-                  else if (/^[A-Za-z0-9.-]+$/.test(val)) combined.domain.push(val);
                   else combined.domain.push(val);
                   return true;
                 }
@@ -147,7 +146,30 @@ jobs:
                 ));
                 if (key === 'domain_suffix') combined[key] = combined[key].map(d => d.replace(/^\./, ''));
                 combined[key] = combined[key].sort();
-                if (!combined[key].length) delete combined[key];
+              }
+
+              // 如果同一域名同时出现在 domain 和 domain_suffix，则只保留在 domain_suffix 中
+              const domainSet = new Set(combined.domain || []);
+              const suffixSet = new Set(combined.domain_suffix || []);
+              if (domainSet.size && suffixSet.size) {
+                for (const d of Array.from(domainSet)) {
+                  // 如果域名等于某个后缀或以该后缀结尾（例如 domain 'a.example.com' vs suffix 'example.com'），视为冲突
+                  // 规则：如果 domain 的条目等于某个 domain_suffix，或以 '.'+suffix 结尾，则移除 domain 中该条目
+                  let keepInSuffix = false;
+                  for (const s of suffixSet) {
+                    if (d === s) { keepInSuffix = true; break; }
+                    if (d.endsWith('.' + s)) { keepInSuffix = true; break; }
+                  }
+                  if (keepInSuffix) {
+                    // 从 domain 中移除
+                    combined.domain = combined.domain.filter(x => x !== d);
+                  }
+                }
+              }
+
+              // 最终移除空数组属性
+              for (const key of ['domain', 'domain_suffix', 'domain_regex']) {
+                if (Array.isArray(combined[key]) && combined[key].length === 0) delete combined[key];
               }
 
               const output = { version: 2, rules: [combined] };
