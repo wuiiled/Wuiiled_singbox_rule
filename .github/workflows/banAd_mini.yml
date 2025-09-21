@@ -15,95 +15,74 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download BanAd_mini JSON and a-dove-is-dumb.yaml
+      - name: Download ADs_merged.txt
         run: |
           mkdir -p temp_repo
           mkdir -p rules
-          curl -L raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/refs/heads/main/Filters/AWAvenue-Ads-Rule-Singbox.json -o temp_repo/banAd_mini.json
-          curl -L raw.githubusercontent.com/ignaciocastro/a-dove-is-dumb/refs/heads/main/clash.yaml -o temp_repo/a-dove-is-dumb.yaml
+          curl -L raw.githubusercontent.com/wuiiled/Wuiiled_Setup/refs/heads/mihomo/rules/ADs_merged.txt -o temp_repo/ADs_merged.txt || true
 
       - name: Install dependencies
         run: npm install fs-extra yaml
 
-      - name: Merge banAd_mini.json + a-dove-is-dumb.yaml
+      - name: Merge ADs_merged.txt -> rules/banAd_mini.json
         run: |
           node <<'EOF'
           const fs = require('fs-extra');
           const path = require('path');
-          const YAML = require('yaml');
 
           (async () => {
             try {
-              const miniPath = 'temp_repo/banAd_mini.json';
-              const adobePath = 'temp_repo/a-dove-is-dumb.yaml';
+              const adsTxtPath = 'temp_repo/ADs_merged.txt';
               const outputPath = 'rules/banAd_mini.json';
-
-              let miniData = {};
-              if (await fs.pathExists(miniPath)) {
-                miniData = JSON.parse(await fs.readFile(miniPath, 'utf8')) || {};
-              }
 
               const combined = { domain: [], domain_suffix: [], domain_regex: [] };
 
-              if (Array.isArray(miniData.rules)) {
-                for (const rule of miniData.rules) {
-                  if (Array.isArray(rule.domain)) combined.domain.push(...rule.domain);
-                  if (Array.isArray(rule.domain_suffix)) combined.domain_suffix.push(...rule.domain_suffix);
-                  if (Array.isArray(rule.domain_regex)) combined.domain_regex.push(...rule.domain_regex);
-                }
-              }
+              const normalizeLine = (raw) => {
+                if (!raw || typeof raw !== 'string') return '';
+                let s = raw.trim();
+                s = s.replace(/^(\s*DOMAIN\S*\s*[,:\-]*\s*)+/i, '');
+                return s.trim();
+              };
 
-              if (await fs.pathExists(adobePath)) {
-                const yamlContent = await fs.readFile(adobePath, 'utf8');
+              if (await fs.pathExists(adsTxtPath)) {
+                const txt = await fs.readFile(adsTxtPath, 'utf8');
+                const lines = txt.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                for (let line of lines) {
+                  line = normalizeLine(line);
+                  if (!line) continue;
 
-                let parsed = {};
-                try { parsed = YAML.parse(yamlContent) || {}; } catch (e) { parsed = {}; }
-
-                const normalizeLine = (raw) => {
-                  if (!raw || typeof raw !== 'string') return '';
-                  let s = raw.trim();
-                  // 反复移除可能的前缀，如 "DOMAIN,", " domain,", 支持任意大小写与空格
-                  s = s.replace(/^(\s*DOMAIN\s*,\s*)+/i, '');
-                  return s.trim();
-                };
-
-                if (Array.isArray(parsed.payload) && parsed.payload.length) {
-                  for (const item of parsed.payload) {
-                    const domain = normalizeLine(item);
-                    if (!domain) continue;
-                    if (domain.startsWith('*.')) combined.domain_suffix.push(domain.slice(2));
-                    else combined.domain.push(domain);
+                  if (/^DOMAIN-SUFFIX\s*[,:\-]\s*/i.test(line)) {
+                    const val = line.replace(/^DOMAIN-SUFFIX\s*[,:\-]\s*/i, '').trim();
+                    if (val) combined.domain_suffix.push(val.replace(/^\./, ''));
+                    continue;
                   }
-                } else {
-                  const lines = yamlContent.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-                  for (let line of lines) {
-                    line = normalizeLine(line);
-                    if (!line) continue;
-
-                    if (/^DOMAIN-SUFFIX\s*,/i.test(line)) {
-                      const val = line.replace(/^DOMAIN-SUFFIX\s*,/i, '').trim();
-                      if (val) combined.domain_suffix.push(val.replace(/^\./, ''));
-                      continue;
-                    }
-                    if (/^DOMAIN-REGEX\s*,/i.test(line)) {
-                      const val = line.replace(/^DOMAIN-REGEX\s*,/i, '').trim();
-                      if (val) combined.domain_regex.push(val);
-                      continue;
-                    }
-
-                    // 处理 *.example.com 或裸域名
-                    if (line.startsWith('*.')) {
-                      combined.domain_suffix.push(line.slice(2));
-                    } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
-                      combined.domain.push(line);
-                    } else {
-                      // 如果行仍含有逗号分隔的前缀（例如 "DOMAIN,example.com" 未被完全移除），尝试最后一次分割取最后一段
-                      const parts = line.split(',').map(p => p.trim()).filter(Boolean);
-                      const candidate = parts[parts.length - 1] || '';
-                      if (candidate.startsWith('*.')) combined.domain_suffix.push(candidate.slice(2));
-                      else if (/^[A-Za-z0-9.-]+$/.test(candidate)) combined.domain.push(candidate);
-                    }
+                  if (/^DOMAIN-REGEX\s*[,:\-]\s*/i.test(line)) {
+                    const val = line.replace(/^DOMAIN-REGEX\s*[,:\-]\s*/i, '').trim();
+                    combined.domain_regex.push(val);
+                    continue;
                   }
+                  if (/^DOMAIN\b/i.test(line)) {
+                    const val = line.replace(/^DOMAIN\S*\s*[,:\-]*\s*/i, '').trim();
+                    if (!val) continue;
+                    if (val.startsWith('*.')) combined.domain_suffix.push(val.slice(2));
+                    else if (/^[A-Za-z0-9.-]+$/.test(val)) combined.domain.push(val);
+                    continue;
+                  }
+
+                  if (line.startsWith('*.')) {
+                    combined.domain_suffix.push(line.slice(2));
+                    continue;
+                  }
+                  if (/^[A-Za-z0-9.-]+$/.test(line)) {
+                    combined.domain.push(line);
+                    continue;
+                  }
+
+                  const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+                  const candidate = parts[parts.length - 1] || '';
+                  if (!candidate) continue;
+                  if (candidate.startsWith('*.')) combined.domain_suffix.push(candidate.slice(2));
+                  else if (/^[A-Za-z0-9.-]+$/.test(candidate)) combined.domain.push(candidate);
                 }
               }
 
@@ -121,7 +100,7 @@ jobs:
               const output = { version: 2, rules: [combined] };
               await fs.ensureDir(path.dirname(outputPath));
               await fs.writeJson(outputPath, output, { spaces: 2 });
-              console.log(`Merged banAd_mini.json + a-dove-is-dumb.yaml -> ${outputPath}`);
+              console.log(`Merged ADs_merged.txt -> ${outputPath}`);
             } catch (err) {
               console.error(err);
               process.exit(1);
@@ -129,11 +108,10 @@ jobs:
           })();
           EOF
 
-
-
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add rules/banAd_mini.json
           git diff --cached --quiet || (git commit -m "Update banAd_mini.json" && git push)
+
