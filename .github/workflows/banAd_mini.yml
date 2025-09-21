@@ -58,10 +58,62 @@ jobs:
               const normalizeLine = (raw) => {
                 if (!raw || typeof raw !== 'string') return '';
                 let s = raw.trim();
-                // 反复移除可能的前缀（如 "DOMAIN,", "DOMAIN-SUFFIX,", "DOMAIN-REGEX:", 任意大小写与空格或中文冒号）
-                s = s.replace(/^(\s*(DOMAIN|DOMAIN-SUFFIX|DOMAIN-REGEX)\s*[,：:]\s*)+/i, '');
-                s = s.replace(/^(\s*DOMAIN\s*,\s*)+/i, '');
-                return s.trim();
+                s = s.replace(/^\uFEFF/, '');
+                return s;
+              };
+
+              const handleLineByPrefix = (line) => {
+                const mDomain = line.match(/^\s*DOMAIN\s*[,：:]\s*(.+)$/i);
+               if (mDomain) {
+                  const val = mDomain[1].trim();
+                  if (val.startsWith('*.')) combined.domain_suffix.push(val.slice(2));
+                  else if (/^[A-Za-z0-9.-]+$/.test(val)) combined.domain.push(val);
+                  else combined.domain.push(val);
+                  return true;
+                }
+                const mSuffix = line.match(/^\s*DOMAIN-SUFFIX\s*[,：:]\s*(.+)$/i);
+                if (mSuffix) {
+                  const val = mSuffix[1].trim().replace(/^\./, '');
+                  combined.domain_suffix.push(val);
+                  return true;
+                }
+                const mRegex = line.match(/^\s*DOMAIN-REGEX\s*[,：:]\s*(.+)$/i);
+                if (mRegex) {
+                  combined.domain_regex.push(mRegex[1].trim());
+                  return true;
+                }
+                return false;
+              };
+
+              const genericParseLine = (rawLine) => {
+                let line = normalizeLine(rawLine);
+                if (!line) return;
+                if (handleLineByPrefix(line)) return;
+
+                line = line.replace(/^(\s*(DOMAIN|DOMAIN-SUFFIX|DOMAIN-REGEX)\s*[,：:]\s*)+/i, '').trim();
+
+                if (line.startsWith('*.')) {
+                  combined.domain_suffix.push(line.slice(2));
+                  return;
+                }
+
+                if (/^[A-Za-z0-9.-]+$/.test(line)) {
+                  combined.domain.push(line);
+                  return;
+                }
+
+                const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+                if (parts.length) {
+                  const candidate = parts[parts.length - 1];
+                  if (!candidate) return;
+                  if (candidate.startsWith('*.')) {
+                    combined.domain_suffix.push(candidate.slice(2));
+                  } else if (/^[A-Za-z0-9.-]+$/.test(candidate)) {
+                    combined.domain.push(candidate);
+                  } else {
+                    combined.domain.push(candidate);
+                  }
+                }
               };
 
               // 解析 a-dove-is-dumb.yaml
@@ -72,72 +124,19 @@ jobs:
 
                 if (Array.isArray(parsed.payload) && parsed.payload.length) {
                   for (const item of parsed.payload) {
-                    const domain = normalizeLine(item);
-                    if (!domain) continue;
-                    if (domain.startsWith('*.')) combined.domain_suffix.push(domain.slice(2));
-                    else combined.domain.push(domain);
+                    genericParseLine(String(item));
                   }
                 } else {
                   const lines = yamlContent.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-                  for (let line of lines) {
-                    line = normalizeLine(line);
-                    if (!line) continue;
-
-                    if (/^DOMAIN-SUFFIX\s*[,：:]/i.test(line)) {
-                      const val = line.replace(/^DOMAIN-SUFFIX\s*[,：:]/i, '').trim();
-                      if (val) combined.domain_suffix.push(val.replace(/^\./, ''));
-                      continue;
-                    }
-                    if (/^DOMAIN-REGEX\s*[,：:]/i.test(line)) {
-                      const val = line.replace(/^DOMAIN-REGEX\s*[,：:]/i, '').trim();
-                      if (val) combined.domain_regex.push(val);
-                      continue;
-                    }
-
-                    if (line.startsWith('*.')) {
-                      combined.domain_suffix.push(line.slice(2));
-                    } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
-                      combined.domain.push(line);
-                    } else {
-                      const parts = line.split(',').map(p => p.trim()).filter(Boolean);
-                      const candidate = parts[parts.length - 1] || '';
-                      if (candidate.startsWith('*.')) combined.domain_suffix.push(candidate.slice(2));
-                      else if (/^[A-Za-z0-9.-]+$/.test(candidate)) combined.domain.push(candidate);
-                    }
-                  }
+                  for (let line of lines) genericParseLine(line);
                 }
               }
 
-              // 解析 ADs_merged.txt（与上面文本解析逻辑相同）
+              // 解析 ADs_merged.txt
               if (await fs.pathExists(adsMergedPath)) {
                 const adsContent = await fs.readFile(adsMergedPath, 'utf8');
                 const lines = adsContent.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-                for (let line of lines) {
-                  line = normalizeLine(line);
-                  if (!line) continue;
-
-                  if (/^DOMAIN-SUFFIX\s*[,：:]/i.test(line)) {
-                    const val = line.replace(/^DOMAIN-SUFFIX\s*[,：:]/i, '').trim();
-                    if (val) combined.domain_suffix.push(val.replace(/^\./, ''));
-                    continue;
-                  }
-                  if (/^DOMAIN-REGEX\s*[,：:]/i.test(line)) {
-                    const val = line.replace(/^DOMAIN-REGEX\s*[,：:]/i, '').trim();
-                    if (val) combined.domain_regex.push(val);
-                    continue;
-                  }
-
-                  if (line.startsWith('*.')) {
-                    combined.domain_suffix.push(line.slice(2));
-                  } else if (/^[A-Za-z0-9.-]+$/.test(line)) {
-                    combined.domain.push(line);
-                  } else {
-                    const parts = line.split(',').map(p => p.trim()).filter(Boolean);
-                    const candidate = parts[parts.length - 1] || '';
-                    if (candidate.startsWith('*.')) combined.domain_suffix.push(candidate.slice(2));
-                    else if (/^[A-Za-z0-9.-]+$/.test(candidate)) combined.domain.push(candidate);
-                  }
-                }
+                for (let line of lines) genericParseLine(line);
               }
 
               // 清洗去重、规范化与排序
@@ -168,4 +167,3 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add rules/banAd_mini.json
           git diff --cached --quiet || (git commit -m "Update banAd_mini.json" && git push)
-
