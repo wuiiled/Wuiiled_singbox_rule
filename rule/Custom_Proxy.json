@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {
+      "domain": [
+        "dash.xns.one",
+        "platformio.org",
+        "arduino.cc"
+      ],
+      "domain_suffix": [
+        ".platformio.org",
+        ".arduino.cc"
+      ]
+    }
+  ]
+}
