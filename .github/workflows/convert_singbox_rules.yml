@@ -37,12 +37,11 @@ jobs:
               # 匹配源仓库中 rules 目录下的所有 txt 文件
               txt_files = glob.glob('source_repo/rules/**/*.txt', recursive=True)
               
-              # 指定生成的 json 文件存放在当前仓库的 rule 目录中
-              output_dir = 'rule'
+              # 指定生成的 json 文件存放在当前仓库的 rules 目录中
+              output_dir = 'rules'
               os.makedirs(output_dir, exist_ok=True)
               
               for file_path in txt_files:
-                  # 使用 list 保留原始条目和顺序，不去重
                   domains = []
                   domain_suffixes = []
                   domain_regexes = []
@@ -55,16 +54,19 @@ jobs:
                                   continue
                               
                               if line.startswith('+.'):
+                                  # +.example.com 等价于 sing-box 中的 domain_suffix: ["example.com"] (匹配本身及子域名)
                                   base_domain = line[2:]
-                                  domains.append(base_domain)
-                                  domain_suffixes.append('.' + base_domain)
+                                  domain_suffixes.append(base_domain)
                               elif line.startswith('*.'):
+                                  # *.example.com 仅匹配一级子域名
                                   base_domain = line[2:]
                                   escaped = base_domain.replace('.', '\\\\.')
                                   domain_regexes.append(f'^[^.]+\\\\.{escaped}$')
                               elif line.startswith('.'):
+                                  # .example.com 仅匹配子域名不匹配本身，等价于 sing-box 中的 domain_suffix: [".example.com"]
                                   domain_suffixes.append(line)
                               else:
+                                  # 精确匹配本身
                                   domains.append(line)
                                   
                       rule_item = {}
@@ -76,9 +78,13 @@ jobs:
                           rule_item['domain_regex'] = domain_regexes
                           
                       if rule_item:
-                          output_data = {'rules': [rule_item]}
+                          # 增加 version: 4
+                          output_data = {
+                              'version': 4,
+                              'rules': [rule_item]
+                          }
                           
-                          # 提取原始文件名，并将生成的 json 保存到 rule 文件夹中
+                          # 提取原始文件名，并将生成的 json 保存到 rules 文件夹中
                           base_name = os.path.basename(file_path)
                           json_name = os.path.splitext(base_name)[0] + '.json'
                           json_path = os.path.join(output_dir, json_name)
@@ -102,8 +108,8 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # 仅添加 rule 目录下的生成的 json 文件
-          git add rule/*.json
+          # 添加 rules 目录下的生成的 json 文件
+          git add rules/*.json
           
           # 如果内容有更新则提交，没有更新则平滑跳过
           git commit -m "chore: auto-fetch and convert txt rules to sing-box json" || exit 0
