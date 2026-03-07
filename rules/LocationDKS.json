@@ -1,0 +1,14 @@
+{
+  "version": 4,
+  "rules": [
+    {
+      "domain_suffix": [
+        "amemv.com",
+        "douyinvod.com",
+        "gifshow.com",
+        "apissl.ksapisrv.com",
+        "edith.xiaohongshu.com"
+      ]
+    }
+  ]
+}
