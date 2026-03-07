@@ -1,0 +1,110 @@
+name: Fetch and Convert TXT Rules to Sing-box JSON
+
+on:
+  schedule:
+    # 每天 UTC 时间 02:00 (北京时间 10:00) 执行一次，可按需修改
+    - cron: '0 2 * * *'
+  workflow_dispatch: # 允许手动触发，方便随时调试
+
+permissions:
+  contents: write
+
+jobs:
+  convert-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Clone target repository (Source TXT Rules)
+        run: |
+          # 指定拉取 wuiiled/Wuiiled_Setup 仓库的 mihomo 分支
+          git clone -b mihomo https://github.com/wuiiled/Wuiiled_Setup.git source_repo
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Convert TXT to JSON
+        run: |
+          python -c "
+          import os
+          import json
+          import glob
+
+          def convert_rules():
+              # 匹配源仓库中 rules 目录下的所有 txt 文件
+              txt_files = glob.glob('source_repo/rules/**/*.txt', recursive=True)
+              
+              # 指定生成的 json 文件存放在当前仓库的 rule 目录中
+              output_dir = 'rule'
+              os.makedirs(output_dir, exist_ok=True)
+              
+              for file_path in txt_files:
+                  # 使用 list 保留原始条目和顺序，不去重
+                  domains = []
+                  domain_suffixes = []
+                  domain_regexes = []
+                  
+                  try:
+                      with open(file_path, 'r', encoding='utf-8') as f:
+                          for line in f:
+                              line = line.strip()
+                              if not line or line.startswith('#'):
+                                  continue
+                              
+                              if line.startswith('+.'):
+                                  base_domain = line[2:]
+                                  domains.append(base_domain)
+                                  domain_suffixes.append('.' + base_domain)
+                              elif line.startswith('*.'):
+                                  base_domain = line[2:]
+                                  escaped = base_domain.replace('.', '\\\\.')
+                                  domain_regexes.append(f'^[^.]+\\\\.{escaped}$')
+                              elif line.startswith('.'):
+                                  domain_suffixes.append(line)
+                              else:
+                                  domains.append(line)
+                                  
+                      rule_item = {}
+                      if domains:
+                          rule_item['domain'] = domains
+                      if domain_suffixes:
+                          rule_item['domain_suffix'] = domain_suffixes
+                      if domain_regexes:
+                          rule_item['domain_regex'] = domain_regexes
+                          
+                      if rule_item:
+                          output_data = {'rules': [rule_item]}
+                          
+                          # 提取原始文件名，并将生成的 json 保存到 rule 文件夹中
+                          base_name = os.path.basename(file_path)
+                          json_name = os.path.splitext(base_name)[0] + '.json'
+                          json_path = os.path.join(output_dir, json_name)
+                          
+                          with open(json_path, 'w', encoding='utf-8') as f:
+                              json.dump(output_data, f, indent=2, ensure_ascii=False)
+                          print(f'Successfully converted {file_path} to {json_path}')
+                  except Exception as e:
+                      print(f'Error processing {file_path}: {e}')
+
+          convert_rules()
+          "
+
+      - name: Clean up cloned source repository
+        run: |
+          # 删除临时拉取的源仓库文件夹，防止其被 commit 到当前仓库
+          rm -rf source_repo
+
+      - name: Commit and Push generated JSON files
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # 仅添加 rule 目录下的生成的 json 文件
+          git add rule/*.json
+          
+          # 如果内容有更新则提交，没有更新则平滑跳过
+          git commit -m "chore: auto-fetch and convert txt rules to sing-box json" || exit 0
+          git push
