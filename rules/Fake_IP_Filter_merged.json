@@ -4,13 +4,6 @@
     {
       "domain": [
         "*",
-        "*-127-*-*-*.nip.io",
-        "*-127-*-*-*.sslip.io",
-        "127-*-*-*.nip.io",
-        "127-*-*-*.sslip.io",
-        "127.*.*.*.nip.io",
-        "127.*.*.*.sslip.io",
-        "127.atlas.skk.moe",
         "adguardteam.github.io",
         "adrules.top",
         "anti-ad.net",
@@ -153,8 +146,6 @@
       "domain_regex": [
         "^[^.]+\\.*\\.xboxlive\\.com$",
         "^[^.]+\\.10099\\.com\\.cn$",
-        "^[^.]+\\.127\\.*\\.*\\.*\\.nip\\.io$",
-        "^[^.]+\\.127\\.*\\.*\\.*\\.sslip\\.io$",
         "^[^.]+\\.blzstatic\\.cn$",
         "^[^.]+\\.cmpassport\\.com$",
         "^[^.]+\\.icitymobile\\.mobi$",
