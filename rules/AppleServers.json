@@ -2,6 +2,9 @@
   "version": 4,
   "rules": [
     {
+      "domain": [
+        "IP-CIDR,17.0.0.0/8,no-resolve"
+      ],
       "domain_suffix": [
         "aaplimg.com",
         "apple-cloudkit.com",
