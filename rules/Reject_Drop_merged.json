@@ -4,7 +4,6 @@
     {
       "domain": [
         "dataflow.biliapi.com",
-        "domain-wildcard,f-log*.grammarly.io",
         "nom.telemetrydeck.com",
         "stat.youpin.mi.com",
         "stats.grafana.org"
