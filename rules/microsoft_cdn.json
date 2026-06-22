@@ -4,12 +4,15 @@
     {
       "domain": [
         "res-h3.public.cdn.office.net",
-        "statics.teams.cdn.office.net",
         "res-2.cdn.office.net",
         "res-1.cdn.office.net",
         "res.cdn.office.net"
       ],
       "domain_suffix": [
+        "statics.teams.cdn.office.net",
+        "shell.cdn.office.net",
+        "f.c2r.ts.cdn.office.net",
+        "b.c2r.ts.cdn.office.net",
         "download.windowsupdate.com",
         "ctldl.windowsupdate.com",
         "cn.windowssearch.com",
@@ -18,6 +21,7 @@
         "officecdn.microsoft.com",
         "developer.microsoft.com",
         "download.microsoft.com",
+        "surface.downloads.prss.microsoft.com",
         "storecorefulfillment.download.prss.microsoft.com",
         "mpnbenefitsrtluat.download.prss.microsoft.com",
         "azurestackhubuat.download.prss.microsoft.com",
