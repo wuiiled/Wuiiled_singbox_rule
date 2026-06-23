@@ -3,6 +3,7 @@
   "rules": [
     {
       "domain": [
+        "app.viayoo.com",
         "assets1.xboxlive.cn",
         "assets2.xboxlive.cn",
         "cn.download.nvidia.com",
@@ -11,8 +12,11 @@
         "kms.03k.org",
         "ocsp.globalsign.com",
         "ocsp2.globalsign.com",
+        "res.viayoo.com",
+        "viayoo.com",
         "www.intel.cn",
-        "www.layuicdn.com"
+        "www.layuicdn.com",
+        "www.viayoo.com"
       ],
       "domain_suffix": [
         "000607.net",
