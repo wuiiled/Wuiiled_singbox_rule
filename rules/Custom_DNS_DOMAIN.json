@@ -16,7 +16,11 @@
         "dns.controld.com",
         "rx.techomespace.com",
         "doh.tiar.app",
-        "dns.jupitrdns.com"
+        "dns.jupitrdns.com",
+        "xns.one",
+        "novaxns.one",
+        "azurewebsites.net",
+        "nxns.link"
       ]
     }
   ]
