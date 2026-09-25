@@ -4,25 +4,7 @@
     {
       "domain": [
         "end-api.shallow.ink",
-        "end.shallow.ink",
-        "DOMAIN-REGEX,$",
-        "DOMAIN-REGEX,+",
-        "DOMAIN-REGEX,-",
-        "DOMAIN-REGEX,.",
-        "DOMAIN-REGEX,\\",
-        "DOMAIN-REGEX,^",
-        "DOMAIN-REGEX,a",
-        "DOMAIN-REGEX,d",
-        "DOMAIN-REGEX,e",
-        "DOMAIN-REGEX,h",
-        "DOMAIN-REGEX,i",
-        "DOMAIN-REGEX,k",
-        "DOMAIN-REGEX,m",
-        "DOMAIN-REGEX,n",
-        "DOMAIN-REGEX,o",
-        "DOMAIN-REGEX,t",
-        "DOMAIN-REGEX,y",
-        "DOMAIN-REGEX,z"
+        "end.shallow.ink"
       ],
       "domain_suffix": [
         "17173.com",

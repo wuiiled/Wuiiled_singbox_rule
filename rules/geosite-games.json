@@ -99,11 +99,7 @@
         "ubistatic9-a.akamaihd.net",
         "videos-rockstargames-com.akamaized.net",
         "wb-agora-hydra-file-storage-k1.s3.amazonaws.com",
-        "xz.pphimalayanrt.com",
-        "DOMAIN-REGEX,^.+-mihayo\\.akamaized\\.net$",
-        "DOMAIN-REGEX,^cdn\\d-epicgames-\\d+\\.file\\.myqcloud\\.com$",
-        "DOMAIN-REGEX,^epicgames-download\\d-\\d+\\.file\\.myqcloud\\.com$",
-        "DOMAIN-REGEX,^epicgames-download\\d\\.akamaized\\.net$"
+        "xz.pphimalayanrt.com"
       ],
       "domain_suffix": [
         "playstation",

@@ -3,22 +3,9 @@
   "rules": [
     {
       "domain": [
-        "3",
-        "c",
-        "e",
-        "g",
-        "l",
-        "m",
-        "n",
-        "o",
-        "r",
-        "s",
-        "t",
-        "u",
-        "y"
+        "yt3.googleusercontent.com"
       ],
       "domain_suffix": [
-        ".",
         "youtube",
         "ads.youtube.com",
         "ggpht.cn",

@@ -3,27 +3,9 @@
   "rules": [
     {
       "domain": [
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "i",
-        "l",
-        "m",
-        "n",
-        "o",
-        "s",
-        "t",
-        "u",
-        "x",
-        "DOMAIN-REGEX,(^|\\.)apiproxy-device-prod-nlb-.+\\.amazonaws\\.com$",
-        "DOMAIN-REGEX,(^|\\.)apiproxy-website-nlb-prod-.+\\.amazonaws\\.com$",
-        "DOMAIN-REGEX,(^|\\.)dualstack\\.apiproxy-.+\\.amazonaws\\.com$",
-        "DOMAIN-REGEX,(^|\\.)dualstack\\.ichnaea-web-.+\\.amazonaws\\.com$"
+        "netflix.com.edgesuite.net"
       ],
       "domain_suffix": [
-        ".",
         "fast.com",
         "netflix.ca",
         "netflix.com",
