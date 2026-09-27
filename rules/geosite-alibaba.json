@@ -3,7 +3,6 @@
   "rules": [
     {
       "domain": [
-        "ali-safety-video.acfun.cn",
         "upos-sz-estgoss.bilivideo.com",
         "upos-sz-mirrorali.bilivideo.com"
       ],
@@ -18,7 +17,6 @@
         "alibabadns.com",
         "alibabausercontent.com",
         "alibtrip.com",
-        "alicdn.com",
         "alicloudccp.com",
         "alidns.com",
         "aligames.com",
@@ -32,7 +30,6 @@
         "alipay.com",
         "alipay.com.cn",
         "alipaydev.com",
-        "alipayobjects.com",
         "aliyun.com",
         "aliyuncs.com",
         "aliyundrive.com",
@@ -81,7 +78,6 @@
         "taopiaopiao.com",
         "tb.cn",
         "tbcache.com",
-        "tbcdn.cn",
         "tmall.com",
         "tudou.com",
         "uc.cn",

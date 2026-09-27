@@ -3,7 +3,6 @@
   "rules": [
     {
       "domain": [
-        "tx-safety-video.acfun.cn",
         "url.cn"
       ],
       "domain_suffix": [
