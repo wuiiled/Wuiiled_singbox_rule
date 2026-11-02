@@ -3,6 +3,7 @@
   "rules": [
     {
       "domain": [
+        "api.segment.io",
         "data.bilibili.com",
         "dataflow.biliapi.com",
         "nom.telemetrydeck.com",
