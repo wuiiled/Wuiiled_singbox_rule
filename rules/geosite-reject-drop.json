@@ -4,7 +4,6 @@
     {
       "domain": [
         "api.segment.io",
-        "data.bilibili.com",
         "dataflow.biliapi.com",
         "nom.telemetrydeck.com",
         "stat.youpin.mi.com",
@@ -26,6 +25,7 @@
         "gepush.com",
         "getui.com",
         "getui.net",
+        "gnar.grammarly.com",
         "in.applicationinsights.azure.com",
         "jpush.cn",
         "jpush.io",
